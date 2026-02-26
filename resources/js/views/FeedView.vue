@@ -1,4 +1,7 @@
 <template>
+  <!-- Trending hashtag sáv (feed felett lebeg) -->
+  <TrendingHashtags />
+
   <div class="feed-container" ref="feedEl">
     <VideoCard
       v-for="(video, i) in feed.videos"
@@ -12,11 +15,18 @@
     <div v-if="feed.loading" class="loading-spinner">
       <div class="spinner" />
     </div>
+
+    <!-- Üres feed -->
+    <div v-if="!feed.loading && !feed.videos.length" class="empty-feed">
+      <span>🎬</span>
+      <p>Még nincs videó — töltsd fel az elsőt!</p>
+      <router-link to="/upload" class="btn-upload">+ Feltöltés</router-link>
+    </div>
   </div>
 
   <!-- Navigációs sáv -->
   <nav class="bottom-nav">
-    <router-link to="/" class="nav-btn active">
+    <router-link to="/" class="nav-btn">
       <span class="icon">🏠</span>
     </router-link>
     <router-link to="/upload" class="nav-btn">
@@ -41,11 +51,11 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useSwipe } from '@vueuse/core'
 import { useFeedStore } from '@/stores/feed'
 import { useAuthStore } from '@/stores/auth'
 import VideoCard from '@/components/VideoCard.vue'
 import CommentPanel from '@/components/CommentPanel.vue'
+import TrendingHashtags from '@/components/TrendingHashtags.vue'
 
 const feed = useFeedStore()
 const auth = useAuthStore()
@@ -73,7 +83,6 @@ function onScroll() {
   const idx = Math.round(el.scrollTop / window.innerHeight)
   currentIndex.value = idx
 
-  // Betöltés ha közel az aljához
   const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - window.innerHeight * 2
   if (nearBottom) feed.loadMore()
 }
@@ -93,17 +102,31 @@ function openComments(videoId) {
 }
 .feed-container::-webkit-scrollbar { display: none; }
 
-.loading-spinner {
+.loading-spinner, .empty-feed {
   height: 100dvh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 16px;
   scroll-snap-align: start;
 }
 
+.empty-feed span { font-size: 56px; }
+.empty-feed p    { color: #888; font-size: 15px; }
+
+.btn-upload {
+  padding: 12px 28px;
+  background: #fe2c55;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 8px;
+}
+
 .spinner {
-  width: 40px;
-  height: 40px;
+  width: 40px; height: 40px;
   border: 3px solid rgba(255,255,255,.3);
   border-top-color: #fff;
   border-radius: 50%;
@@ -114,8 +137,7 @@ function openComments(videoId) {
 /* Bottom Nav */
 .bottom-nav {
   position: fixed;
-  bottom: 0;
-  left: 0; right: 0;
+  bottom: 0; left: 0; right: 0;
   height: 60px;
   background: rgba(0,0,0,.8);
   backdrop-filter: blur(10px);
