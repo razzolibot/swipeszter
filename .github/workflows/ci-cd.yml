@@ -32,10 +32,10 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: 🐘 PHP 8.3 setup
+      - name: 🐘 PHP 8.4 setup
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: mbstring, pdo, pdo_mysql, redis, gd, zip, bcmath, exif, pcntl
           coverage: none
 
