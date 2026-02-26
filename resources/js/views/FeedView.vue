@@ -29,9 +29,19 @@
     <router-link to="/" class="nav-btn">
       <span class="icon">🏠</span>
     </router-link>
+
     <router-link to="/upload" class="nav-btn">
       <span class="icon plus">＋</span>
     </router-link>
+
+    <!-- Értesítés csengő (csak bejelentkezve) -->
+    <button v-if="auth.user" class="nav-btn bell-btn" @click="showNotifications = true">
+      <span class="icon">🔔</span>
+      <span v-if="notifs.unreadCount > 0" class="badge">
+        {{ notifs.unreadCount > 9 ? '9+' : notifs.unreadCount }}
+      </span>
+    </button>
+
     <router-link v-if="auth.user" :to="`/@${auth.user.username}`" class="nav-btn">
       <img v-if="auth.user.avatar" :src="`/storage/${auth.user.avatar}`" class="nav-avatar" />
       <span v-else class="icon">👤</span>
@@ -47,21 +57,31 @@
     :video-id="commentVideoId"
     @close="commentVideoId = null"
   />
+
+  <!-- Értesítés panel -->
+  <NotificationPanel
+    v-if="showNotifications"
+    @close="showNotifications = false"
+  />
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useFeedStore } from '@/stores/feed'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notifications'
 import VideoCard from '@/components/VideoCard.vue'
 import CommentPanel from '@/components/CommentPanel.vue'
+import NotificationPanel from '@/components/NotificationPanel.vue'
 import TrendingHashtags from '@/components/TrendingHashtags.vue'
 
-const feed = useFeedStore()
-const auth = useAuthStore()
-const feedEl = ref(null)
-const currentIndex = ref(0)
-const commentVideoId = ref(null)
+const feed              = useFeedStore()
+const auth              = useAuthStore()
+const notifs            = useNotificationStore()
+const feedEl            = ref(null)
+const currentIndex      = ref(0)
+const commentVideoId    = ref(null)
+const showNotifications = ref(false)
 
 onMounted(async () => {
   feed.reset()
@@ -174,5 +194,31 @@ function openComments(videoId) {
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid #fff;
+}
+
+.bell-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid #000;
 }
 </style>
