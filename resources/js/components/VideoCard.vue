@@ -1,14 +1,14 @@
 <template>
   <div class="video-card" :class="{ active: isActive }">
-    <!-- Videó lejátszó -->
+    <!-- Videó lejátszó (src-t a hls.js állítja be, nem Vue) -->
     <video
       ref="videoEl"
       class="video-player"
-      :src="video.hls_url"
       :poster="video.thumbnail_url"
       loop
       playsinline
-      @click="togglePlay"
+      muted
+      @click="onVideoClick"
       @timeupdate="onTimeUpdate"
     />
 
@@ -17,6 +17,11 @@
       <div v-if="paused" class="play-overlay">
         <span>▶</span>
       </div>
+    </transition>
+
+    <!-- Double-tap szívecske animáció -->
+    <transition name="heart-pop">
+      <div v-if="heartAnim" class="heart-anim">❤️</div>
     </transition>
 
     <!-- Progress bar -->
@@ -64,11 +69,20 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFeedStore } from '@/stores/feed'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/api'
+// hls.js lazy import — csak Chrome/Firefox-ban töltődik be
+let HlsLib = null
+async function getHls() {
+  if (!HlsLib) {
+    const mod = await import('hls.js')
+    HlsLib = mod.default
+  }
+  return HlsLib
+}
 
 const props = defineProps({
   video: Object,
@@ -76,32 +90,85 @@ const props = defineProps({
 })
 const emit = defineEmits(['open-comments'])
 
-const router  = useRouter()
-const feed    = useFeedStore()
-const auth    = useAuthStore()
-const videoEl = ref(null)
-const paused  = ref(false)
-const progress = ref(0)
+const router    = useRouter()
+const feed      = useFeedStore()
+const auth      = useAuthStore()
+const videoEl   = ref(null)
+const paused    = ref(false)
+const progress  = ref(0)
 const following = ref(false)
+const heartAnim = ref(false)  // double-tap like animáció
+let hls = null
+let lastTap = 0
 
-// Autoplay az aktív kártyán, pause a többin
-watch(() => props.isActive, async (active) => {
+// ─── HLS betöltés ────────────────────────────────────────────────
+onMounted(() => {
+  if (!videoEl.value || !props.video.hls_url) return
+  initHls()
+})
+
+onUnmounted(() => {
+  hls?.destroy()
+  hls = null
+})
+
+async function initHls() {
+  const src = props.video.hls_url
+  const Hls = await getHls()
+
+  if (Hls.isSupported()) {
+    // Chrome, Firefox, Edge → hls.js
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      backBufferLength: 10,
+    })
+    hls.loadSource(src)
+    hls.attachMedia(videoEl.value)
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (props.isActive) videoEl.value?.play().catch(() => {})
+    })
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) hls?.destroy()
+    })
+  } else if (videoEl.value.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari → natív HLS támogatás, hls.js nem kell
+    videoEl.value.src = src
+    if (props.isActive) videoEl.value.play().catch(() => {})
+  }
+}
+
+// ─── Aktív/inaktív kezelés ───────────────────────────────────────
+watch(() => props.isActive, (active) => {
   if (!videoEl.value) return
   if (active) {
     videoEl.value.play().catch(() => {})
     paused.value = false
-    // Megtekintés rögzítése
     api.post(`/videos/${props.video.id}/view`, { watched_percent: 0 }).catch(() => {})
   } else {
     videoEl.value.pause()
     videoEl.value.currentTime = 0
+    paused.value = false
   }
 })
+
+// ─── Play/pause kattintásra + double-tap like ────────────────────
+function onVideoClick() {
+  const now = Date.now()
+  if (now - lastTap < 300) {
+    // Double-tap → like
+    doubleTapLike()
+  } else {
+    // Single tap → play/pause
+    togglePlay()
+  }
+  lastTap = now
+}
 
 function togglePlay() {
   if (!videoEl.value) return
   if (videoEl.value.paused) {
-    videoEl.value.play()
+    videoEl.value.play().catch(() => {})
     paused.value = false
   } else {
     videoEl.value.pause()
@@ -109,11 +176,21 @@ function togglePlay() {
   }
 }
 
+async function doubleTapLike() {
+  if (!auth.token) { router.push('/login'); return }
+  if (!props.video.is_liked) {
+    heartAnim.value = true
+    setTimeout(() => heartAnim.value = false, 1000)
+    await feed.toggleLike(props.video)
+  }
+}
+
 function onTimeUpdate() {
-  if (!videoEl.value || !videoEl.value.duration) return
+  if (!videoEl.value?.duration) return
   progress.value = (videoEl.value.currentTime / videoEl.value.duration) * 100
 }
 
+// ─── Like / Follow / Navigate ────────────────────────────────────
 async function handleLike() {
   if (!auth.token) { router.push('/login'); return }
   await feed.toggleLike(props.video)
@@ -164,6 +241,30 @@ function formatCount(n) {
 
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Double-tap szívecske */
+.heart-anim {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 100px;
+  pointer-events: none;
+  z-index: 50;
+}
+.heart-pop-enter-active {
+  animation: heartPop .8s ease forwards;
+}
+.heart-pop-leave-active {
+  transition: opacity .2s;
+}
+.heart-pop-leave-to { opacity: 0; }
+
+@keyframes heartPop {
+  0%   { transform: translate(-50%, -50%) scale(0);   opacity: 1; }
+  50%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1);   opacity: 0; }
+}
 
 /* Progress bar */
 .progress-bar {
