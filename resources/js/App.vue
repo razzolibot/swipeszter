@@ -3,11 +3,33 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notifications'
 
-const auth = useAuthStore()
+const auth   = useAuthStore()
+const notifs = useNotificationStore()
+
 onMounted(() => auth.fetchMe())
+
+// Reverb WebSocket kapcsolat — csak bejelentkezve
+watch(() => auth.user, async (user) => {
+  if (!user) return
+
+  // Unread count betöltése
+  await notifs.fetchUnreadCount()
+
+  // Laravel Echo + Reverb real-time
+  try {
+    const Echo = (await import('./echo')).default
+    Echo.private(`App.Models.User.${user.id}`)
+      .notification((notification) => {
+        notifs.addRealtime(notification)
+      })
+  } catch (e) {
+    console.warn('Reverb nem elérhető, polling mód')
+  }
+}, { immediate: true })
 </script>
 
 <style>

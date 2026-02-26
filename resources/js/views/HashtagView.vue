@@ -1,6 +1,9 @@
 <template>
+  <!-- Trending sáv itt is -->
+  <TrendingHashtags />
+
   <div class="hashtag-page">
-    <div class="hashtag-header">
+    <div class="hashtag-header" style="margin-top: 44px;">
       <button class="back-btn" @click="router.back()">←</button>
       <div class="header-info">
         <h1 class="hashtag-title">#{{ slug }}</h1>
@@ -46,10 +49,12 @@
   </div>
 </template>
 
+
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import VideoCard from '@/components/VideoCard.vue'
+import TrendingHashtags from '@/components/TrendingHashtags.vue'
 import api from '@/api'
 
 const route  = useRoute()

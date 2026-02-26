@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\FollowNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,6 +25,9 @@ class FollowController extends Controller
         } else {
             $me->following()->attach($user->id);
             $following = true;
+
+            // Értesítés az új követettnek
+            $user->notify(new FollowNotification($me));
         }
 
         return response()->json([

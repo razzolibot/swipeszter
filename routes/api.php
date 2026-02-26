@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\FollowController;
 use App\Http\Controllers\Api\HashtagController;
 use App\Http\Controllers\Api\LikeController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\VideoController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Profil ───────────────────────────────────────────────────
     Route::patch('/profile',              [ProfileController::class, 'update']);
     Route::post('/users/{user}/follow',   [FollowController::class, 'toggle']);
+
+    // ── Értesítések ──────────────────────────────────────────────
+    Route::get('/notifications',                       [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count',          [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/read-all',             [NotificationController::class, 'readAll']);
+    Route::patch('/notifications/{id}/read',           [NotificationController::class, 'read']);
 });
 
 // ── Publikus ─────────────────────────────────────────────────────

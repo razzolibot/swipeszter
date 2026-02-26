@@ -18,7 +18,9 @@
         "@vitejs/plugin-vue": "^6.0.4",
         "@vueuse/core": "^14.2.1",
         "hls.js": "^1.6.15",
+        "laravel-echo": "^2.3.0",
         "pinia": "^3.0.4",
+        "pusher-js": "^8.4.0",
         "vue": "^3.5.29",
         "vue-router": "^4.6.4"
     }

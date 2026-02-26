@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Video;
+use App\Notifications\CommentNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,11 @@ class CommentController extends Controller
         ]);
 
         $video->increment('comments_count');
+
+        // Értesítés a videó tulajdonosának
+        if ($video->user_id !== $request->user()->id) {
+            $video->user->notify(new CommentNotification($request->user(), $comment->load('video')));
+        }
 
         return response()->json($comment->load('user'), 201);
     }
