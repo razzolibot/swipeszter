@@ -65,20 +65,23 @@ jobs:
           php artisan key:generate
           sed -i 's/DB_DATABASE=laravel/DB_DATABASE=swipeszter_test/' .env
           sed -i 's/DB_PASSWORD=/DB_PASSWORD=secret/' .env
-          sed -i 's/DB_USERNAME=root/DB_USERNAME=root/' .env
 
       - name: 🗄️ Migrate
         run: php artisan migrate --force
 
       - name: ✅ Tesztek futtatása
-        run: php artisan test --parallel
+        run: php artisan test
 
-  # ─── Docker build & push ────────────────────────────────────────
+  # ─── Docker build & push → ghcr.io ─────────────────────────────
   docker:
-    name: 🐳 Docker build & push
+    name: 🐳 Docker build & push (ghcr.io)
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: 📥 Checkout
@@ -87,22 +90,23 @@ jobs:
       - name: 🔧 Docker Buildx setup
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔑 Docker Hub login
+      - name: 🔑 GitHub Container Registry login
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🏷️ Meta (tag-ek generálása)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/swipeszter
+          images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
 
-      - name: 🏗️ Build & Push
+      - name: 🏗️ Build & Push → ghcr.io
         id: docker_build
         uses: docker/build-push-action@v5
         with:
@@ -113,5 +117,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 📋 Image digest
-        run: echo "✅ Kész! Image digest ${{ steps.docker_build.outputs.digest }}"
+      - name: 📋 Kész!
+        run: |
+          echo "✅ Image sikeresen feltöltve!"
+          echo "📦 ghcr.io/${{ github.repository }}:latest"
+          echo "🔑 Digest: ${{ steps.docker_build.outputs.digest }}"
