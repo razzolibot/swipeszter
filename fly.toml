@@ -1,0 +1,40 @@
+# fly.toml — Swipeszter Fly.io konfiguráció
+app = "swipeszter"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "production"
+  APP_DEBUG = "false"
+  LOG_CHANNEL = "stderr"
+  LOG_LEVEL = "error"
+  DB_CONNECTION = "pgsql"
+  DB_PORT = "5432"
+  QUEUE_CONNECTION = "redis"
+  CACHE_DRIVER = "redis"
+  SESSION_DRIVER = "redis"
+  FILESYSTEM_DISK = "public"
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Videó storage mount (persistent volume)
+[mounts]
+  source = "swipeszter_storage"
+  destination = "/var/www/html/storage/app/public"
+  initial_size = "5gb"
