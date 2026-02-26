@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/swipeszter
-
 jobs:
   # ─── Tesztek ────────────────────────────────────────────────────
   test:
@@ -67,9 +64,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
           sed -i 's/DB_DATABASE=laravel/DB_DATABASE=swipeszter_test/' .env
-          sed -i 's/DB_USERNAME=root/DB_USERNAME=root/' .env
           sed -i 's/DB_PASSWORD=/DB_PASSWORD=secret/' .env
-          sed -i 's/REDIS_HOST=127.0.0.1/REDIS_HOST=127.0.0.1/' .env
+          sed -i 's/DB_USERNAME=root/DB_USERNAME=root/' .env
 
       - name: 🗄️ Migrate
         run: php artisan migrate --force
@@ -101,12 +97,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/swipeszter
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
 
       - name: 🏗️ Build & Push
+        id: docker_build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -117,4 +114,4 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: 📋 Image digest
-        run: echo "✅ Kész! Image digest: ${{ steps.docker_build.outputs.digest }}"
+        run: echo "✅ Kész! Image digest ${{ steps.docker_build.outputs.digest }}"
