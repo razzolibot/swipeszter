@@ -6,7 +6,8 @@ const routes = [
     { path: '/login',    name: 'login',    component: () => import('@/views/LoginView.vue') },
     { path: '/register', name: 'register', component: () => import('@/views/RegisterView.vue') },
     { path: '/upload',   name: 'upload',   component: () => import('@/views/UploadView.vue'),  meta: { auth: true } },
-    { path: '/@:username', name: 'profile', component: () => import('@/views/ProfileView.vue') },
+    { path: '/@:username',    name: 'profile', component: () => import('@/views/ProfileView.vue') },
+    { path: '/hashtag/:slug', name: 'hashtag', component: () => import('@/views/HashtagView.vue') },
 ]
 
 const router = createRouter({

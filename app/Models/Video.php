@@ -55,6 +55,11 @@ class Video extends Model
         return $this->hasMany(VideoView::class);
     }
 
+    public function hashtags()
+    {
+        return $this->belongsToMany(Hashtag::class, 'hashtag_video');
+    }
+
     // ─── Scopes ──────────────────────────────────────────────────
 
     public function scopeReady($query)

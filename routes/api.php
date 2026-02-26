@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\FollowController;
+use App\Http\Controllers\Api\HashtagController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\VideoController;
@@ -30,7 +31,12 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // ── Publikus ─────────────────────────────────────────────────────
-Route::get('/videos',              [VideoController::class, 'index']);
-Route::get('/videos/{video}',      [VideoController::class, 'show']);
-Route::get('/videos/{video}/comments', [CommentController::class, 'index']);
-Route::get('/users/{username}',    [ProfileController::class, 'show']);
+Route::get('/videos',                      [VideoController::class, 'index']);
+Route::get('/videos/{video}',              [VideoController::class, 'show']);
+Route::get('/videos/{video}/comments',     [CommentController::class, 'index']);
+Route::get('/users/{username}',            [ProfileController::class, 'show']);
+
+// ── Hashtag ───────────────────────────────────────────────────────
+Route::get('/hashtags/trending',           [HashtagController::class, 'trending']);
+Route::get('/hashtags/{slug}',             [HashtagController::class, 'show']);
+Route::get('/hashtags/{slug}/videos',      [HashtagController::class, 'videos']);

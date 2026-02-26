@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessVideo;
+use App\Models\Hashtag;
 use App\Models\Video;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class VideoController extends Controller
     public function index(Request $request): JsonResponse
     {
         $videos = Video::feed()
+            ->with('hashtags')
             ->paginate(5);
 
         return response()->json([
@@ -44,13 +46,22 @@ class VideoController extends Controller
 
         $path = $request->file('video')->store('videos/original', 'public');
 
+        $description = $request->input('description');
+
         $video = Video::create([
             'user_id'       => $request->user()->id,
             'title'         => $request->input('title'),
-            'description'   => $request->input('description'),
+            'description'   => $description,
             'original_path' => $path,
             'status'        => 'pending',
         ]);
+
+        // Hashtagek kinyerése és mentése
+        if ($description) {
+            $hashtagIds = Hashtag::syncFromDescription($description);
+            $video->hashtags()->sync($hashtagIds);
+            Hashtag::whereIn('id', $hashtagIds)->increment('videos_count');
+        }
 
         // Átadjuk a queue-nak feldolgozásra (FFmpeg → HLS)
         ProcessVideo::dispatch($video);
@@ -106,6 +117,9 @@ class VideoController extends Controller
             'status'         => $video->status,
             'is_liked'       => $video->isLikedBy($user),
             'created_at'     => $video->created_at,
+            'hashtags'       => $video->relationLoaded('hashtags')
+                ? $video->hashtags->map(fn($h) => ['id' => $h->id, 'name' => $h->name, 'slug' => $h->slug])
+                : [],
             'user' => [
                 'id'       => $video->user->id,
                 'name'     => $video->user->name,

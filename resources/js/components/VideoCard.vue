@@ -63,7 +63,9 @@
     <div class="video-info">
       <div class="username" @click="goToProfile">@{{ video.user.username }}</div>
       <div v-if="video.title" class="video-title">{{ video.title }}</div>
-      <div v-if="video.description" class="video-desc">{{ video.description }}</div>
+      <div v-if="video.description" class="video-desc">
+        <HashtagText :text="video.description" />
+      </div>
     </div>
   </div>
 </template>
@@ -73,6 +75,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFeedStore } from '@/stores/feed'
 import { useAuthStore } from '@/stores/auth'
+import HashtagText from '@/components/HashtagText.vue'
 import api from '@/api'
 // hls.js lazy import — csak Chrome/Firefox-ban töltődik be
 let HlsLib = null
