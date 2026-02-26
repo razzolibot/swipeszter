@@ -1,6 +1,6 @@
 FROM php:8.4-fpm-alpine
 
-# Install system dependencies
+# Install system dependencies + build tools (PECL-hez kell)
 RUN apk add --no-cache \
     git \
     curl \
@@ -14,7 +14,11 @@ RUN apk add --no-cache \
     npm \
     ffmpeg \
     nginx \
-    supervisor
+    supervisor \
+    autoconf \
+    g++ \
+    make \
+    linux-headers
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-jpeg --with-webp \
@@ -28,8 +32,10 @@ RUN docker-php-ext-configure gd --with-jpeg --with-webp \
         pcntl \
         exif
 
-# Install Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
+# Install Redis extension (PECL)
+RUN pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del autoconf g++ make linux-headers
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
