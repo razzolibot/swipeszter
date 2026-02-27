@@ -35,6 +35,16 @@ RUN npm ci
 
 COPY . .
 
+# VITE build-time env vars (Reverb WebSocket host — production értékek build argként jönnek be)
+ARG VITE_REVERB_APP_KEY=""
+ARG VITE_REVERB_HOST="localhost"
+ARG VITE_REVERB_PORT="443"
+ARG VITE_REVERB_SCHEME="https"
+ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY \
+    VITE_REVERB_HOST=$VITE_REVERB_HOST \
+    VITE_REVERB_PORT=$VITE_REVERB_PORT \
+    VITE_REVERB_SCHEME=$VITE_REVERB_SCHEME
+
 # Assets build + composer dump (env vars nélkül, runtime-on lesz cache)
 RUN composer dump-autoload --optimize \
     && npm run build

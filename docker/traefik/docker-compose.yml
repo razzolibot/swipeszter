@@ -1,0 +1,71 @@
+# docker/traefik/docker-compose.yml — Traefik 3.6 reverse proxy
+#
+# Ez a fájl a SZERVEREN fut egyszer, a Swipeszter-től függetlenül.
+# Több alkalmazás is csatlakozhat ugyanehhez a Traefik-hez.
+#
+# Első indítás:
+#   docker network create traefik
+#   mkdir -p /opt/traefik/acme
+#   touch /opt/traefik/acme/acme.json
+#   chmod 600 /opt/traefik/acme/acme.json
+#   docker compose -f docker/traefik/docker-compose.yml up -d
+
+services:
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      # ── API/Dashboard (opcionális, localhost-on elérhető) ────────
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+
+      # ── Docker provider ──────────────────────────────────────────
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik"
+
+      # ── Entrypoints ──────────────────────────────────────────────
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # HTTP/3 (QUIC) — opcionális, de szép
+      - "--entrypoints.websecure.http3=true"
+
+      # ── Let's Encrypt TLS ─────────────────────────────────────────
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=razzolibot@gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json"
+      # Staging (teszt, comment out ha production kell):
+      # - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+
+      # ── Globális HTTP → HTTPS redirect ───────────────────────────
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+
+      # ── Logging ──────────────────────────────────────────────────
+      - "--log.level=WARN"
+      - "--accesslog=true"
+
+    ports:
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"    # HTTP/3
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/traefik/acme:/acme
+
+    networks:
+      - traefik
+
+    labels:
+      - "traefik.enable=true"
+      # Dashboard — csak localhost-ról érhető el (SSH tunnel ajánlott)
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+
+networks:
+  traefik:
+    external: true   # docker network create traefik
