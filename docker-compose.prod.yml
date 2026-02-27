@@ -1,0 +1,138 @@
+# docker-compose.prod.yml — Swipeszter production (Traefik 3.6)
+#
+# Előfeltétel:
+#   1. Traefik stack fut (lásd docker/traefik/docker-compose.yml)
+#   2. "traefik" nevű external Docker network létezik:
+#        docker network create traefik
+#   3. .env.prod fájl ki van töltve
+#
+# Indítás:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod build
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+services:
+
+  # ─── Alkalmazás (nginx + php-fpm + horizon + reverb) ─────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Vite ezeket build-time beéget a JS bundle-be
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
+        VITE_REVERB_HOST:    ${DOMAIN}
+        VITE_REVERB_PORT:    "443"
+        VITE_REVERB_SCHEME:  "https"
+    image: swipeszter:prod
+    restart: unless-stopped
+    environment:
+      APP_NAME:          "Swipeszter"
+      APP_ENV:           production
+      APP_DEBUG:         "false"
+      APP_KEY:           ${APP_KEY}
+      APP_URL:           https://${DOMAIN}
+
+      DB_CONNECTION:     mysql
+      DB_HOST:           mysql
+      DB_PORT:           3306
+      DB_DATABASE:       ${DB_DATABASE:-swipeszter}
+      DB_USERNAME:       ${DB_USERNAME:-swipeszter}
+      DB_PASSWORD:       ${DB_PASSWORD}
+
+      REDIS_HOST:        redis
+      REDIS_PORT:        6379
+      QUEUE_CONNECTION:  redis
+      CACHE_DRIVER:      redis
+      SESSION_DRIVER:    redis
+
+      FILESYSTEM_DISK:   public
+
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID:     ${REVERB_APP_ID}
+      REVERB_APP_KEY:    ${REVERB_APP_KEY}
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET}
+      # Reverb belülről fut (nginx proxyzza az /app/ path-t rá)
+      REVERB_HOST:       "127.0.0.1"
+      REVERB_PORT:       "8080"
+      REVERB_SCHEME:     "http"
+
+      LOG_CHANNEL:       stderr
+      LOG_LEVEL:         warning
+
+    volumes:
+      - storage_data:/var/www/html/storage/app/public
+
+    networks:
+      - internal
+      - traefik
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+
+      # ── HTTPS router ─────────────────────────────────────────────
+      - "traefik.http.routers.swipeszter.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.swipeszter.entrypoints=websecure"
+      - "traefik.http.routers.swipeszter.tls=true"
+      - "traefik.http.routers.swipeszter.tls.certresolver=letsencrypt"
+      - "traefik.http.services.swipeszter.loadbalancer.server.port=80"
+
+      # ── HTTP → HTTPS redirect ─────────────────────────────────────
+      - "traefik.http.routers.swipeszter-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.swipeszter-http.entrypoints=web"
+      - "traefik.http.routers.swipeszter-http.middlewares=swipeszter-https-redirect"
+      - "traefik.http.middlewares.swipeszter-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.swipeszter-https-redirect.redirectscheme.permanent=true"
+
+  # ─── MySQL ────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE:      ${DB_DATABASE:-swipeszter}
+      MYSQL_USER:          ${DB_USERNAME:-swipeszter}
+      MYSQL_PASSWORD:      ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # ─── Redis ────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ─── Networks ─────────────────────────────────────────────────────
+networks:
+  internal:
+    driver: bridge
+  traefik:
+    external: true   # Traefik stack hozza létre: docker network create traefik
+
+# ─── Volumes ──────────────────────────────────────────────────────
+volumes:
+  mysql_data:
+  redis_data:
+  storage_data:
